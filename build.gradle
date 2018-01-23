@@ -1,0 +1,39 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url "http://repo.spring.io/libs-release" }
+        maven { url "https://oss.sonatype.org/content/repositories/releases"}
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots"}
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:1.1.6.RELEASE")
+        classpath group: 'org.cloudfoundry', name: 'cf-gradle-plugin', version: '1.0.4'
+        classpath("net.thucydides:thucydides-core:0.9.273")
+    }
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'groovy'
+    apply plugin: 'eclipse'
+    apply plugin: 'idea'
+    apply plugin: 'maven'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url "http://repo.spring.io/libs-release" }
+    }
+
+    task wrapper(type: Wrapper) {
+        gradleVersion = '1.11'
+    }
+
+}
+
+
+

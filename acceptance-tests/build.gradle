@@ -1,0 +1,111 @@
+import net.thucydides.core.reports.ResultChecker
+import net.thucydides.core.reports.html.HtmlAggregateStoryReporter
+
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url "http://repo.spring.io/libs-release" }
+        maven { url "https://oss.sonatype.org/content/repositories/releases" }
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+    }
+    dependencies {
+        classpath("net.thucydides:thucydides-core:0.9.273")
+    }
+}
+
+
+apply plugin: ThucydidesPlugin
+
+thucydides.projectKey = 'flying-high-acceptance-tests'
+
+dependencies {
+    compile("org.codehaus.groovy:groovy-all:2.3.6")
+    compile("com.google.guava:guava:18.0")
+
+    testCompile("junit:junit")
+
+    compile("org.springframework.data:spring-data-rest-webmvc:2.2.0.RELEASE")
+    testCompile "org.codehaus.groovy.modules.http-builder:http-builder:0.7"
+    testCompile 'org.easytesting:fest-assert-core:2.0M10'
+    testCompile 'net.thucydides:thucydides-core:0.9.273'
+    testCompile 'net.thucydides:thucydides-jbehave-plugin:0.9.273'
+    testCompile 'org.jbehave:jbehave:3.9.4'
+    testCompile 'com.thoughtworks.paranamer:paranamer:2.7'
+
+}
+
+
+if (webserviceEnvironment == "dev") {
+    baseUrl = 'http://flying-high-dev.cfapps.io'
+    driver = 'chrome'
+} else if (webserviceEnvironment == "prod") {
+    baseUrl = 'http://flying-high.cfapps.io'
+    driver = 'chrome'
+}
+
+println "webserviceEnvironment = $webserviceEnvironment"
+println "driver = $driver"
+println "baseUrl = $baseUrl"
+
+// Common test configuration
+test {
+    systemProperty 'thucydides.capability.types', 'capability,feature'
+    systemProperty 'thucydides.test.root', 'flyinghigh.services'
+    systemProperty 'webservice.environment', webserviceEnvironment
+    systemProperty 'webdriver.base.url', baseUrl
+    systemProperty 'webdriver.driver', driver
+    systemProperty 'chrome.binary', '/usr/local/chromedriver'
+    systemProperty 'thucydides.browser.width', 1000
+    systemProperty 'thucydides.resized.image.width', 1000
+    systemProperty 'dashboard.tag.list', 'capability, layer'
+    systemProperty 'dashboard.tag.list', 'capability, layer'
+
+    useJUnit()
+}
+
+test.shouldRunAfter clean
+aggregate.mustRunAfter test
+checkOutcomes.mustRunAfter aggregate
+
+clean {
+    delete "target"
+}
+task verify {
+    println "Running acceptance tests"
+}
+verify.dependsOn ':acceptance-tests:clean', ':acceptance-tests:test', ':acceptance-tests:aggregate', ':acceptance-tests:checkOutcomes'
+
+
+class ThucydidesPlugin implements Plugin<Project> {
+    void apply(Project project) {
+        project.extensions.create("thucydides", ThucydidesPluginExtension)
+        project.task('aggregate') << {
+            logger.lifecycle("Generating Thucydides Reports for ${project.thucydides.projectKey} to directory $project.thucydides.outputDirectory")
+            System.properties['thucydides.project.key'] = project.thucydides.projectKey
+            def reporter = new HtmlAggregateStoryReporter(project.thucydides.projectKey)
+            reporter.outputDirectory = new File(project.thucydides.outputDirectory)
+            reporter.issueTrackerUrl = project.thucydides.issueTrackerUrl
+            reporter.jiraUrl = project.thucydides.jiraUrl
+            reporter.jiraProject = project.thucydides.jiraProject
+            reporter.generateReportsForTestResultsFrom(new File(project.projectDir, project.thucydides.sourceDirectory))
+        }
+
+        project.task('checkOutcomes') << {
+            def reportDir = new File(project.projectDir, project.thucydides.outputDirectory)
+            logger.lifecycle("Checking Thucydides results for ${project.thucydides.projectKey} in directory $reportDir")
+            def checker = new ResultChecker(reportDir)
+            checker.checkTestResults()
+        }
+
+    }
+}
+
+class ThucydidesPluginExtension {
+    def String outputDirectory = 'target/site/thucydides'
+    def String projectKey
+    def String issueTrackerUrl
+    def String jiraUrl
+    def String jiraProject
+    def String sourceDirectory = outputDirectory
+}
